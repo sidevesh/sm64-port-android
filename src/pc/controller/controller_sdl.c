@@ -29,6 +29,11 @@
 extern int16_t rightx;
 extern int16_t righty;
 
+static int16_t leftx;
+static int16_t lefty;
+static int16_t ltrig;
+static int16_t rtrig;
+
 #ifdef BETTERCAMERA
 int mouse_x;
 int mouse_y;
@@ -171,7 +176,7 @@ static void controller_sdl_read(OSContPad *pad) {
         sdl_cntrl = NULL;
         sdl_haptic = NULL;
     }
-
+	
     if (sdl_cntrl == NULL) {
         for (int i = 0; i < SDL_NumJoysticks(); i++) {
             if (SDL_IsGameController(i)) {
@@ -186,12 +191,15 @@ static void controller_sdl_read(OSContPad *pad) {
             return;
         }
     }
-
+	
+	bool inputChanged = false;
     for (u32 i = 0; i < SDL_CONTROLLER_BUTTON_MAX; ++i) {
         const bool new = SDL_GameControllerGetButton(sdl_cntrl, i);
         const bool pressed = !joy_buttons[i] && new;
         joy_buttons[i] = new;
         if (pressed) last_joybutton = i;
+		if (pressed)
+			inputChanged=true;
     }
 
     u32 buttons_down = 0;
@@ -200,7 +208,7 @@ static void controller_sdl_read(OSContPad *pad) {
             buttons_down |= joy_binds[i][1];
 
     pad->button |= buttons_down;
-
+	
     const u32 xstick = buttons_down & STICK_XMASK;
     const u32 ystick = buttons_down & STICK_YMASK;
     if (xstick == STICK_LEFT)
@@ -211,15 +219,27 @@ static void controller_sdl_read(OSContPad *pad) {
         pad->stick_y = -128;
     else if (ystick == STICK_UP)
         pad->stick_y = 127;
+	
+	int16_t previousLeftX = leftx;
+    int16_t previousLeftY = lefty;
+    int16_t previousRightX = rightx;
+    int16_t previousRightY = righty;
+    int16_t previousLTrig = ltrig;
+    int16_t previousRTrig = rtrig;
 
-    int16_t leftx = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_LEFTX);
-    int16_t lefty = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_LEFTY);
+    leftx = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_LEFTX);
+    lefty = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_LEFTY);
     rightx = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_RIGHTX);
     righty = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_RIGHTY);
 
-    int16_t ltrig = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_TRIGGERLEFT);
-    int16_t rtrig = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+    ltrig = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+    rtrig = SDL_GameControllerGetAxis(sdl_cntrl, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
 
+    if(leftx!=previousLeftX||lefty!=previousLeftY||rightx!=previousRightX||righty!=previousRightY||ltrig!=previousLTrig||rtrig!=previousRTrig)
+        inputChanged = true;
+	
+	if(inputChanged)
+        set_current_input(sdlGameController);
 #ifdef TARGET_WEB
     // Firefox has a bug: https://bugzilla.mozilla.org/show_bug.cgi?id=1606562
     // It sets down y to 32768.0f / 32767.0f, which is greater than the allowed 1.0f,
