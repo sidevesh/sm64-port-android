@@ -30,14 +30,17 @@ void bhv_piranha_plant_bubble_loop(void) {
     struct Object *parent = o->parentObj; // the Piranha Plant
     f32 scale = 0;
     s32 i;
-    s32 frame = parent->header.gfx.unk38.animFrame;
+    s32 frame = parent->header.gfx.animInfo.animFrame;
     // TODO: rename lastFrame if it is inaccurate
-    s32 lastFrame = parent->header.gfx.unk38.curAnim->unk08 - 2;
+    s32 lastFrame = parent->header.gfx.animInfo.curAnim->loopEnd - 2;
     s32 UNUSED unused;
     f32 doneShrinkingFrame; // the first frame after shrinking is done
     f32 beginGrowingFrame;  // the frame just before growing begins
 
     cur_obj_set_pos_relative(parent, 0, 72.0f, 180.0f);
+
+    if (frame == -1)
+        frame = 0;
 
     switch (o->oAction) {
         case PIRANHA_PLANT_BUBBLE_ACT_IDLE:

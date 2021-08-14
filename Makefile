@@ -297,10 +297,6 @@ endif
 GENERATED_C_FILES := $(BUILD_DIR)/assets/mario_anim_data.c $(BUILD_DIR)/assets/demo_data.c \
   $(addprefix $(BUILD_DIR)/bin/,$(addsuffix _skybox.c,$(notdir $(basename $(wildcard textures/skyboxes/*.png)))))
 
-ifeq ($(TARGET_WINDOWS),0)
-  CXX_FILES :=
-endif
-
 ifneq ($(TARGET_N64),1)
   ULTRA_C_FILES := \
     alBnkfNew.c \
@@ -448,10 +444,10 @@ ifneq ($(TARGET_WEB),1)
 else
   CC := emcc
 endif
-ifeq ($(TARGET_WINDOWS),1)
-  LD := $(CXX)
-else
+ifeq ($(CXX_FILES),"")
   LD := $(CC)
+else
+  LD := $(CXX)
 endif
 CPP := cpp -P
 OBJDUMP := objdump
@@ -490,7 +486,7 @@ ifeq ($(TARGET_WEB),1)
   PLATFORM_LDFLAGS := -lm -no-pie -s TOTAL_MEMORY=20MB -g4 --source-map-base http://localhost:8080/ -s "EXTRA_EXPORTED_RUNTIME_METHODS=['callMain']"
 endif
 
-PLATFORM_CFLAGS += -DNO_SEGMENTED_MEMORY
+PLATFORM_CFLAGS += -DNO_SEGMENTED_MEMORY -DUSE_SYSTEM_MALLOC
 
 # Compiler and linker flags for graphics backend
 ifeq ($(ENABLE_OPENGL),1)
@@ -729,21 +725,66 @@ $(ENDIAN_BITWIDTH): tools/determine-endian-bitwidth.c
 	@rm $@.dummy1
 	@rm $@.dummy2
 
-$(SOUND_BIN_DIR)/sound_data.ctl: sound/sound_banks/ $(SOUND_BANK_FILES) $(SOUND_SAMPLE_AIFCS) $(ENDIAN_BITWIDTH)
-	$(PYTHON) tools/assemble_sound.py $(BUILD_DIR)/sound/samples/ sound/sound_banks/ $(SOUND_BIN_DIR)/sound_data.ctl $(SOUND_BIN_DIR)/sound_data.tbl $(VERSION_CFLAGS) $$(cat $(ENDIAN_BITWIDTH))
+$(SOUND_BIN_DIR)/sound_data.ctl.be.64: sound/sound_banks/ $(SOUND_BANK_FILES) $(SOUND_SAMPLE_AIFCS)
+	$(PYTHON) tools/assemble_sound.py $(BUILD_DIR)/sound/samples/ sound/sound_banks/ $(SOUND_BIN_DIR)/sound_data.ctl.be.64 $(SOUND_BIN_DIR)/sound_data.tbl.be.64 $(VERSION_CFLAGS) --endian big --bitwidth 64
 
-$(SOUND_BIN_DIR)/sound_data.tbl: $(SOUND_BIN_DIR)/sound_data.ctl
+$(SOUND_BIN_DIR)/sound_data.ctl.be.32: sound/sound_banks/ $(SOUND_BANK_FILES) $(SOUND_SAMPLE_AIFCS)
+	$(PYTHON) tools/assemble_sound.py $(BUILD_DIR)/sound/samples/ sound/sound_banks/ $(SOUND_BIN_DIR)/sound_data.ctl.be.32 $(SOUND_BIN_DIR)/sound_data.tbl.be.32 $(VERSION_CFLAGS) --endian big --bitwidth 32
+
+$(SOUND_BIN_DIR)/sound_data.ctl.le.64: sound/sound_banks/ $(SOUND_BANK_FILES) $(SOUND_SAMPLE_AIFCS)
+	$(PYTHON) tools/assemble_sound.py $(BUILD_DIR)/sound/samples/ sound/sound_banks/ $(SOUND_BIN_DIR)/sound_data.ctl.le.64 $(SOUND_BIN_DIR)/sound_data.tbl.le.64 $(VERSION_CFLAGS) --endian little --bitwidth 64
+
+$(SOUND_BIN_DIR)/sound_data.ctl.le.32: sound/sound_banks/ $(SOUND_BANK_FILES) $(SOUND_SAMPLE_AIFCS)
+	$(PYTHON) tools/assemble_sound.py $(BUILD_DIR)/sound/samples/ sound/sound_banks/ $(SOUND_BIN_DIR)/sound_data.ctl.le.32 $(SOUND_BIN_DIR)/sound_data.tbl.le.32 $(VERSION_CFLAGS) --endian little --bitwidth 32
+
+$(SOUND_BIN_DIR)/sound_data.tbl.be.64: $(SOUND_BIN_DIR)/sound_data.ctl.be.64
+	@true
+
+$(SOUND_BIN_DIR)/sound_data.tbl.be.32: $(SOUND_BIN_DIR)/sound_data.ctl.be.32
+	@true
+
+$(SOUND_BIN_DIR)/sound_data.tbl.le.64: $(SOUND_BIN_DIR)/sound_data.ctl.le.64
+	@true
+
+$(SOUND_BIN_DIR)/sound_data.tbl.le.32: $(SOUND_BIN_DIR)/sound_data.ctl.le.32
 	@true
 
 ifeq ($(VERSION),sh)
-$(SOUND_BIN_DIR)/sequences.bin: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/jp/ $(SOUND_SEQUENCE_FILES) $(ENDIAN_BITWIDTH)
-	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) $$(cat $(ENDIAN_BITWIDTH))
+$(SOUND_BIN_DIR)/sequences.bin.be.64: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/jp/ $(SOUND_SEQUENCE_FILES)
+	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets.be.64 sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) --endian big --bitwidth 64
+
+$(SOUND_BIN_DIR)/sequences.bin.be.32: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/jp/ $(SOUND_SEQUENCE_FILES)
+	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets.be.32 sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) --endian big --bitwidth 32
+
+$(SOUND_BIN_DIR)/sequences.bin.le.64: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/jp/ $(SOUND_SEQUENCE_FILES)
+	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets.le.64 sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) --endian little --bitwidth 64
+
+$(SOUND_BIN_DIR)/sequences.bin.le.32: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/jp/ $(SOUND_SEQUENCE_FILES)
+	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets.le.32 sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) --endian little --bitwidth 32
 else
-$(SOUND_BIN_DIR)/sequences.bin: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/$(VERSION)/ $(SOUND_SEQUENCE_FILES) $(ENDIAN_BITWIDTH)
-	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) $$(cat $(ENDIAN_BITWIDTH))
+$(SOUND_BIN_DIR)/sequences.bin.be.64: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/$(VERSION)/ $(SOUND_SEQUENCE_FILES)
+	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets.be.64 sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) --endian big --bitwidth 64
+
+$(SOUND_BIN_DIR)/sequences.bin.be.32: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/$(VERSION)/ $(SOUND_SEQUENCE_FILES)
+	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets.be.32 sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) --endian big --bitwidth 32
+
+$(SOUND_BIN_DIR)/sequences.bin.le.64: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/$(VERSION)/ $(SOUND_SEQUENCE_FILES)
+	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets.le.64 sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) --endian little --bitwidth 64
+
+$(SOUND_BIN_DIR)/sequences.bin.le.32: $(SOUND_BANK_FILES) sound/sequences.json sound/sequences/ sound/sequences/$(VERSION)/ $(SOUND_SEQUENCE_FILES)
+	$(PYTHON) tools/assemble_sound.py --sequences $@ $(SOUND_BIN_DIR)/bank_sets.le.32 sound/sound_banks/ sound/sequences.json $(SOUND_SEQUENCE_FILES) $(VERSION_CFLAGS) --endian little --bitwidth 32
 endif
 
-$(SOUND_BIN_DIR)/bank_sets: $(SOUND_BIN_DIR)/sequences.bin
+$(SOUND_BIN_DIR)/bank_sets.be.64: $(SOUND_BIN_DIR)/sequences.bin.be.64
+	@true
+
+$(SOUND_BIN_DIR)/bank_sets.be.32: $(SOUND_BIN_DIR)/sequences.bin.be.32
+	@true
+
+$(SOUND_BIN_DIR)/bank_sets.le.64: $(SOUND_BIN_DIR)/sequences.bin.le.64
+	@true
+
+$(SOUND_BIN_DIR)/bank_sets.le.32: $(SOUND_BIN_DIR)/sequences.bin.le.32
 	@true
 
 $(SOUND_BIN_DIR)/%.m64: $(SOUND_BIN_DIR)/%.o
@@ -756,7 +797,11 @@ $(SOUND_BIN_DIR)/%.inc.c: $(SOUND_BIN_DIR)/%
 	hexdump -v -e '1/1 "0x%X,"' $< > $@
 	echo >> $@
 
-$(SOUND_BIN_DIR)/sound_data.o: $(SOUND_BIN_DIR)/sound_data.ctl.inc.c $(SOUND_BIN_DIR)/sound_data.tbl.inc.c $(SOUND_BIN_DIR)/sequences.bin.inc.c $(SOUND_BIN_DIR)/bank_sets.inc.c
+$(SOUND_BIN_DIR)/sound_data.o: \
+	$(SOUND_BIN_DIR)/sound_data.ctl.be.64.inc.c $(SOUND_BIN_DIR)/sound_data.tbl.be.64.inc.c $(SOUND_BIN_DIR)/sequences.bin.be.64.inc.c $(SOUND_BIN_DIR)/bank_sets.be.64.inc.c \
+	$(SOUND_BIN_DIR)/sound_data.ctl.be.32.inc.c $(SOUND_BIN_DIR)/sound_data.tbl.be.32.inc.c $(SOUND_BIN_DIR)/sequences.bin.be.32.inc.c $(SOUND_BIN_DIR)/bank_sets.be.32.inc.c \
+	$(SOUND_BIN_DIR)/sound_data.ctl.le.64.inc.c $(SOUND_BIN_DIR)/sound_data.tbl.le.64.inc.c $(SOUND_BIN_DIR)/sequences.bin.le.64.inc.c $(SOUND_BIN_DIR)/bank_sets.le.64.inc.c \
+	$(SOUND_BIN_DIR)/sound_data.ctl.le.32.inc.c $(SOUND_BIN_DIR)/sound_data.tbl.le.32.inc.c $(SOUND_BIN_DIR)/sequences.bin.le.32.inc.c $(SOUND_BIN_DIR)/bank_sets.le.32.inc.c
 
 $(BUILD_DIR)/levels/scripts.o: $(BUILD_DIR)/include/level_headers.h
 
@@ -776,8 +821,6 @@ $(BUILD_DIR)/actors/%.o: OPT_FLAGS := -g
 $(BUILD_DIR)/bin/%.o: OPT_FLAGS := -g
 $(BUILD_DIR)/src/goddard/%.o: OPT_FLAGS := -g
 $(BUILD_DIR)/src/goddard/%.o: MIPSISET := -mips1
-$(BUILD_DIR)/src/audio/%.o: OPT_FLAGS := -O2 -Wo,-loopunroll,0
-$(BUILD_DIR)/src/audio/load.o: OPT_FLAGS := -O2 -framepointer -Wo,-loopunroll,0
 $(BUILD_DIR)/lib/src/%.o: OPT_FLAGS :=
 $(BUILD_DIR)/lib/src/math/ll%.o: MIPSISET := -mips3 -32
 $(BUILD_DIR)/lib/src/math/%.o: OPT_FLAGS := -O2
@@ -793,15 +836,22 @@ $(BUILD_DIR)/lib/src/_Ldtob.o: OPT_FLAGS := -O3
 $(BUILD_DIR)/lib/src/_Printf.o: OPT_FLAGS := -O3
 $(BUILD_DIR)/lib/src/sprintf.o: OPT_FLAGS := -O3
 
-# enable loop unrolling except for external.c (external.c might also have used
-# unrolling, but it makes one loop harder to match)
-$(BUILD_DIR)/src/audio/%.o: OPT_FLAGS := -O2
-$(BUILD_DIR)/src/audio/load.o: OPT_FLAGS := -O2
+# Enable loop unrolling except for external.c (external.c might also have used
+# unrolling, but it makes one loop harder to match).
+# For all audio files other than external.c and port_eu.c, put string literals
+# in .data. (In Shindou, the port_eu.c string literals also moved to .data.)
+$(BUILD_DIR)/src/audio/%.o: OPT_FLAGS := -O2 -use_readwrite_const
+$(BUILD_DIR)/src/audio/port_eu.o: OPT_FLAGS := -O2
 $(BUILD_DIR)/src/audio/external.o: OPT_FLAGS := -O2 -Wo,-loopunroll,0
 else
 
+$(BUILD_DIR)/src/audio/%.o: OPT_FLAGS := -O2 -Wo,-loopunroll,0
+$(BUILD_DIR)/src/audio/load.o: OPT_FLAGS := -O2 -framepointer -Wo,-loopunroll,0
+
 # The source-to-source optimizer copt is enabled for audio. This makes it use
 # acpp, which needs -Wp,-+ to handle C++-style comments.
+# All other files than external.c should really use copt, but only a few have
+# been matched so far.
 $(BUILD_DIR)/src/audio/effects.o: OPT_FLAGS := -O2 -Wo,-loopunroll,0 -sopt,-inline=sequence_channel_process_sound,-scalaroptimize=1 -Wp,-+
 $(BUILD_DIR)/src/audio/synthesis.o: OPT_FLAGS := -O2 -sopt,-scalaroptimize=1 -Wp,-+
 #$(BUILD_DIR)/src/audio/seqplayer.o: OPT_FLAGS := -O2 -sopt,-inline_manual,-scalaroptimize=1 -Wp,-+ #-Wo,-v,-bb,-l,seqplayer_list.txt
@@ -872,6 +922,7 @@ APK_FILES := $(shell find android/ -type f)
 
 $(APK): $(EXE) $(APK_FILES)
 	cp -r android $(BUILD_DIR) && \
+	cp $(PREFIX)/lib/libc++_shared.so $(BUILD_DIR)/android/lib/$(ARCH_APK)/ && \
 	cp $(EXE) $(BUILD_DIR)/android/lib/$(ARCH_APK)/ && \
 	cd $(BUILD_DIR)/android && \
 	zip -r ../../../$@ ./* && \
